@@ -4,7 +4,7 @@ use serde::Deserialize;
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::v7 as protocol;
+use super::{feedback::Feedback, v7 as protocol};
 
 use protocol::{
     Attachment, AttachmentType, Event, MonitorCheckIn, SessionAggregates, SessionUpdate,
@@ -64,6 +64,9 @@ enum EnvelopeItemType {
     /// A Monitor Check In Item Type
     #[serde(rename = "check_in")]
     MonitorCheckIn,
+    /// A User Feedback Item type.
+    #[serde(rename = "feedback")]
+    Feedback,
 }
 
 /// An Envelope Item Header.
@@ -112,6 +115,8 @@ pub enum EnvelopeItem {
     Attachment(Attachment),
     /// A MonitorCheckIn item.
     MonitorCheckIn(MonitorCheckIn),
+    /// A User Feedback item.
+    Feedback(Event<'static>),
     /// This is a sentinel item used to `filter` raw envelopes.
     Raw,
     // TODO:
@@ -151,6 +156,12 @@ impl From<Attachment> for EnvelopeItem {
 impl From<MonitorCheckIn> for EnvelopeItem {
     fn from(check_in: MonitorCheckIn) -> Self {
         EnvelopeItem::MonitorCheckIn(check_in)
+    }
+}
+
+impl From<Feedback> for EnvelopeItem {
+    fn from(feedback: Feedback) -> Self {
+        EnvelopeItem::Feedback(feedback.to_new_event())
     }
 }
 
@@ -352,6 +363,7 @@ impl Envelope {
                 EnvelopeItem::MonitorCheckIn(check_in) => {
                     serde_json::to_writer(&mut item_buf, check_in)?
                 }
+                EnvelopeItem::Feedback(feedback) => serde_json::to_writer(&mut item_buf, feedback)?,
                 EnvelopeItem::Raw => {
                     continue;
                 }
@@ -362,6 +374,7 @@ impl Envelope {
                 EnvelopeItem::SessionAggregates(_) => "sessions",
                 EnvelopeItem::Transaction(_) => "transaction",
                 EnvelopeItem::MonitorCheckIn(_) => "check_in",
+                EnvelopeItem::Feedback(_) => "feedback",
                 EnvelopeItem::Attachment(_) | EnvelopeItem::Raw => unreachable!(),
             };
             writeln!(
@@ -505,6 +518,9 @@ impl Envelope {
             })),
             EnvelopeItemType::MonitorCheckIn => {
                 serde_json::from_slice(payload).map(EnvelopeItem::MonitorCheckIn)
+            }
+            EnvelopeItemType::Feedback => {
+                serde_json::from_slice(payload).map(EnvelopeItem::Feedback)
             }
         }
         .map_err(EnvelopeError::InvalidItemPayload)?;
