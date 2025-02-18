@@ -22,6 +22,8 @@ libiconv = { pkg-path = "libiconv", systems = ["aarch64-darwin", "x86_64-darwin"
 
 # Extra tools
 cargo-nextest.pkg-path = "cargo-nextest"
+openssl.pkg-path = "openssl"
+pkg-config.pkg-path = "pkg-config"
 
 [vars]
 
